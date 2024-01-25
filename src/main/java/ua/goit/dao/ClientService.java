@@ -126,7 +126,7 @@ public class ClientService {
             resultSet = statement.executeQuery(getAllClientsSql);
             while (resultSet.next()) {
                 Client client = new Client();
-                client.setId(resultSet.getInt("id"));
+                client.setId(resultSet.getLong("id"));
                 client.setName(resultSet.getString("name"));
                 clients.add(client);
             }

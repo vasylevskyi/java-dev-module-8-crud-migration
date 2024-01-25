@@ -7,15 +7,15 @@ import com.opencsv.bean.CsvBindByName;
 public class Client {
 
     @CsvBindByName ( column = "Clint ID", required = true)
-    private int id;
+    private long id;
     @CsvBindByName ( column = "Name", required = true)
     private String name;
 
-    public int getId() {
+    public long getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(long id) {
         this.id = id;
     }
 

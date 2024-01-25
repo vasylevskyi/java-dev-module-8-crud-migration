@@ -36,9 +36,11 @@ public class App {
 
 
         //Task 2.2
+/*
         String clientName = new ClientService(database.getConnection()).getById(5);
 
         System.out.println("Client Name = " + clientName);
+*/
 
         //Task 2.3
 
@@ -51,11 +53,9 @@ public class App {
 
         //Task 2.5
 
-/*
         List<Client> clients = new ClientService(database.getConnection()).listAll();
 
         System.out.println("Clients List " + clients.toString());
-*/
 
 
 
