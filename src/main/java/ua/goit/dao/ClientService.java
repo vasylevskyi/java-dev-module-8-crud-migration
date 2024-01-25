@@ -1,113 +1,175 @@
 package ua.goit.dao;
 
-/*
-* Напиши клас з назвою ClientService. Цей клас призначений для CRUD операцій з клієнтами. Мають бути наступні методи:
+import ua.goit.model.Client;
 
-long create(String name) - додає нового клієнта з іменем name. Повертає ідентифікатор щойно створеного клієнта.
-String getById(long id) - повертає назву клієнта з ідентифікатором id
-void setName(long id, String name) - встановлює нове ім'я name для клієнта з ідентифікатором id
-void deleteById(long id) - видаляє клієнта з ідентифікатором id
-List<Client> listAll() - повертає всіх клієнтів з БД у вигляді колекції об'єктів типу Client (цей клас створи сам,
-* у ньому має бути 2 поля - id та name)
-
-* Передбач валідацію вхідних даних в методах класу ClientService. Якщо якісь вхідні дані некоректні (наприклад, ми
-* намагаємось створити клієнта з занадто коротким чи довгим іменем) - відповідний метод має викидати Exception.*/
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ClientService {
-    private PreparedStatement createStatement;
-    private PreparedStatement readStatement;
+    private PreparedStatement createPreparedStatement;
+    private PreparedStatement readPreparedStatement;
+    private PreparedStatement setNamePreparedStatement;
+    private PreparedStatement deleteClientByIdPreparedStatement;
+
+    private Connection connection;
+    private static String getMaxIdSql = "SELECT MAX(ID) AS id FROM CLIENT";
+    private static String getAllClientsSql = "SELECT * FROM client";
+
+    public ClientService() {}
+
     public ClientService(Connection connection) throws SQLException {
-        createStatement = connection
-                .prepareStatement("INSERT INTO client (name) VALUES (?)");
+        createPreparedStatement = connection
+                .prepareStatement("INSERT INTO client (id, name) VALUES (?, ?)");
 
-        readStatement = connection
+        readPreparedStatement = connection
                 .prepareStatement("SELECT id, name FROM client WHERE id = ?");
+
+        setNamePreparedStatement = connection
+                .prepareStatement("UPDATE client SET name = ? WHERE id = ?");
+
+        deleteClientByIdPreparedStatement = connection
+                .prepareStatement("DELETE from client WHERE id = ?");
+
+        this.connection = connection;
+
     }
 
 
-
-
-    //додає нового клієнта з іменем name. Повертає ідентифікатор щойно створеного клієнта.
     public long create(String name) throws SQLException {
-        createStatement.setString(1, name);
-/*
-        createStatement.setInt(2, person.getAge());
-        createStatement.setString(3, person.getBirthday().toString());
-*/
-        int i = createStatement.executeUpdate();
-        return (long) i;
+        try {
+            ClientService.validateClientName(name);
+        } catch (ClientNameOutOfBoundariesException e) {
+            e.printStackTrace();
+            return -1;
+        }
 
+        long newId = ClientService.getMaxId(connection) + 1;
 
+        createPreparedStatement.setLong(1, newId);
+        createPreparedStatement.setString(2, name);
+
+        createPreparedStatement.executeUpdate();
+
+        return newId;
     }
 
-    // повертає назву клієнта з ідентифікатором id
 
     public String getById(long id) {
+        try {
+            ClientService.validateClientId(id);
+        } catch (NegativeClientIdException e) {
+            e.printStackTrace();
+            return "Change Client Id to Positive value";
+        }
+        try {
+            readPreparedStatement.setLong(1, id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            ResultSet resultSet = readPreparedStatement.executeQuery();
+            if (!resultSet.next()) {
+                return null;
+            }
+            return resultSet.getString(2);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
 
     }
 
-    // встановлює нове ім'я name для клієнта з ідентифікатором id
     public void setName(long id, String name) {
-
+        try {
+            ClientService.validateClientId(id);
+        } catch (NegativeClientIdException e) {
+            e.printStackTrace();
+            System.out.println("Change Client Id to Positive value");
+        }
+        try {
+            setNamePreparedStatement.setString(1, name);
+            setNamePreparedStatement.setLong(2, id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            setNamePreparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    // видаляє клієнта з ідентифікатором id
     public void deleteById(long id) {
-
+        try {
+            ClientService.validateClientId(id);
+        } catch (NegativeClientIdException e) {
+            e.printStackTrace();
+            System.out.println("Change Client Id to Positive value");
+        }
+        try {
+            deleteClientByIdPreparedStatement.setLong(1, id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            deleteClientByIdPreparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    /* повертає всіх клієнтів з БД у вигляді колекції об'єктів типу Client (цей клас створи сам,
-            * у ньому має бути 2 поля - id та name)*/
-    public List<Client> listAll() {
-
+    public List<Client> listAll() throws SQLException {
+        List<Client> clients = new ArrayList<>();
+        ResultSet resultSet;
+        try (Statement statement = connection.createStatement()) {
+            resultSet = statement.executeQuery(getAllClientsSql);
+            while (resultSet.next()) {
+                Client client = new Client();
+                client.setId(resultSet.getInt("id"));
+                client.setName(resultSet.getString("name"));
+                clients.add(client);
+            }
+            return clients;
+        }
     }
-    public long getMaxId() {
+    public static long getMaxId(Connection connection) {
+        long id = 0;
+        try (Statement statement = connection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery(getMaxIdSql);
+            if (!resultSet.next()) {
+                return 0;
+            }
+            id = resultSet.getLong("id");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return id;
+    }
 
+    public static void validateClientId(long id) throws NegativeClientIdException {
+        if (id <= 0) {
+            throw new NegativeClientIdException("Client Id is Negative!");
+        }
+    }
+
+    public static void validateClientName(String name) throws ClientNameOutOfBoundariesException {
+        if ((name.length() < 2 || name.length() > 1000)) {
+            throw new ClientNameOutOfBoundariesException("Client name is out of boundaries!");
+        }
+    }
+
+    public static class NegativeClientIdException extends Exception {
+        public NegativeClientIdException(String message) {
+            super(message);
+        }
+    }
+
+    public static class ClientNameOutOfBoundariesException extends Exception {
+        public ClientNameOutOfBoundariesException(String message) {
+            super(message);
+        }
     }
 }
 
-/*
-*     private PreparedStatement createSt;
-    private PreparedStatement readSt;
 
-    public PersonCrudService(Connection connection) {
-        createSt = connection
-            .prepareStatement("INSERT INTO people (name, age, birthday) VALUES (?, ?, ?)");
-
-        readSt = connection
-            .prepareStatement("SELECT id, name, age, birthday FROM people WHERE id = ?");
-    }
-
-    public void create(Person person) {
-        createSt.setString(1, person.getName());
-        createSt.setInt(2, person.getAge());
-        createSt.setString(3, person.getBirthday().toString());
-
-        createSt.executeUpdate();
-    }
-
-    public Person getById(long id) {
-        readSt.setLong(1, id);
-
-        ResultSet rs = readSt.executeQuery();
-
-        if (!rs.next()) {
-            return null;
-        }
-
-        String name = rs.getString("name");
-        int age = rs.getInt("age");
-        LocalDate birthday = LocalDate.parse(rs.getString("birthday"));
-
-        Person result = new Person();
-        result.setName(name);
-        result.setAge(age);
-        result.setBirthday(birthday);
-        result.setId(id);
-
-        return result;
-    }*/
